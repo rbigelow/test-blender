@@ -7,13 +7,28 @@ or via the command line:
     blender --background --python little_red_riding_hood.py
 
 Requirements: Blender 3.x or 4.x
+
+Output files (written to RENDER_OUTPUT_DIR, default /tmp/lrrh_renders/):
+  front.png          — front view
+  back.png           — back view
+  left.png           — left-side view
+  right.png          — right-side view
+  three_quarter_fl.png — front-left three-quarter view
+  three_quarter_fr.png — front-right three-quarter view
+  top.png            — top-down view
+  little_red_riding_hood.blend — Blender project file
 """
 
+import os
 import bpy
 import bmesh
 import math
 import mathutils
 from mathutils import Vector, Matrix
+
+# Directory where multi-angle PNG screenshots are written.
+# Override before running if you want a different location.
+RENDER_OUTPUT_DIR = "/tmp/lrrh_renders"
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -608,9 +623,8 @@ def build_hair(collections, mat_hair):
     # Hair bangs — front fringe plate
     bm2 = bmesh.new()
     bmesh.ops.create_uvsphere(bm2, u_segments=12, v_segments=8, radius=0.14)
-    for v in bm2.verts:
-        if v.co.y > 0:
-            bm2.verts.remove(v)
+    bangs_verts_to_remove = [v for v in bm2.verts if v.co.y > 0]
+    bmesh.ops.delete(bm2, geom=bangs_verts_to_remove, context="VERTS")
 
     mesh2 = bpy.data.meshes.new("Mesh_Bangs")
     bm2.to_mesh(mesh2)
@@ -1056,11 +1070,12 @@ def build_control_shapes(collections):
     circle.hide_viewport = True
     shapes["circle"] = circle
 
-    # Arrow widget for sword deploy control
+    # Arrow widget for sword deploy control — use a cone as a fallback visual
     deselect_all()
-    bpy.ops.mesh.primitive_arrow_add() if hasattr(bpy.ops.mesh, "primitive_arrow_add") else None
-    # Fall back to a cone
-    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.06, radius2=0.0, depth=0.14)
+    if hasattr(bpy.ops.mesh, "primitive_arrow_add"):
+        bpy.ops.mesh.primitive_arrow_add()
+    else:
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.06, radius2=0.0, depth=0.14)
     cone = bpy.context.active_object
     cone.name = "WGT_SwordDeploy"
     link_to_collection(cone, collections["controls"])
@@ -1221,6 +1236,110 @@ def setup_lighting():
 
 
 # ---------------------------------------------------------------------------
+# Multi-angle screenshot rendering
+# ---------------------------------------------------------------------------
+
+# Camera shot definitions: (filename_stem, camera_xyz, look_at_xyz)
+# The character stands roughly 1.7 m tall; look_at is centred at mid-torso.
+CAMERA_SHOTS = [
+    ("front",            ( 0.00, -2.20,  1.30), (0.0, 0.0, 1.20)),
+    ("back",             ( 0.00,  2.20,  1.30), (0.0, 0.0, 1.20)),
+    ("left",             (-2.20,  0.00,  1.30), (0.0, 0.0, 1.20)),
+    ("right",            ( 2.20,  0.00,  1.30), (0.0, 0.0, 1.20)),
+    ("three_quarter_fl", (-1.56, -1.56,  1.40), (0.0, 0.0, 1.20)),
+    ("three_quarter_fr", ( 1.56, -1.56,  1.40), (0.0, 0.0, 1.20)),
+    ("top",              ( 0.00, -0.40,  3.20), (0.0, 0.0, 1.10)),
+]
+
+
+def _point_camera_at(cam_obj, target_xyz):
+    """
+    Rotate *cam_obj* so its -Z local axis points toward *target_xyz*.
+    Uses Blender's track-to-quaternion helper for an exact look-at.
+    """
+    loc = Vector(cam_obj.location)
+    tgt = Vector(target_xyz)
+    direction = (tgt - loc).normalized()
+    # Camera looks along -Z; its up direction is +Y in local space.
+    quat = direction.to_track_quat("-Z", "Y")
+    cam_obj.rotation_euler = quat.to_euler()
+
+
+def render_screenshots(output_dir=None):
+    """
+    Render PNG screenshots of the current scene from seven preset angles.
+
+    Each image is saved as ``<output_dir>/<stem>.png``.  The active camera is
+    temporarily repositioned for every shot; the original scene camera is
+    restored afterwards.
+
+    Parameters
+    ----------
+    output_dir : str, optional
+        Directory to write the PNG files into.  Defaults to RENDER_OUTPUT_DIR
+        (``/tmp/lrrh_renders`` unless overridden at the top of this file).
+    """
+    if output_dir is None:
+        output_dir = RENDER_OUTPUT_DIR
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    scene = bpy.context.scene
+    render = scene.render
+
+    # ---- Render settings ----
+    render.engine = "BLENDER_EEVEE"          # fast; swap to CYCLES for raytracing
+    render.resolution_x = 1280
+    render.resolution_y = 720
+    render.resolution_percentage = 100
+    render.image_settings.file_format = "PNG"
+    render.image_settings.color_mode = "RGBA"
+    render.image_settings.compression = 15   # 0-15 PNG compression (Blender range)
+
+    # EEVEE quality tweaks
+    if hasattr(scene, "eevee"):
+        scene.eevee.taa_render_samples = 64
+        scene.eevee.use_gtao = True          # ambient occlusion
+        scene.eevee.use_bloom = True         # soft bloom for anime glow
+
+    # ---- Temporary render camera ----
+    cam_data = bpy.data.cameras.new("Render_ShotCam")
+    cam_data.lens = 50                        # 50 mm focal length
+    cam_data.clip_start = 0.01
+    cam_data.clip_end = 100.0
+    shot_cam = bpy.data.objects.new("Render_ShotCam", cam_data)
+    scene.collection.objects.link(shot_cam)
+
+    original_camera = scene.camera
+    scene.camera = shot_cam
+
+    rendered_paths = []
+    print(f"\n  Rendering {len(CAMERA_SHOTS)} screenshots → {output_dir}")
+
+    for stem, cam_xyz, look_xyz in CAMERA_SHOTS:
+        shot_cam.location = Vector(cam_xyz)
+        _point_camera_at(shot_cam, look_xyz)
+
+        filepath = os.path.join(output_dir, f"{stem}.png")
+        render.filepath = filepath
+
+        print(f"    [{stem}]  camera={cam_xyz}  → {filepath}")
+        bpy.ops.render.render(write_still=True)
+        rendered_paths.append(filepath)
+
+    # ---- Restore original camera & clean up temporary camera ----
+    scene.camera = original_camera
+    bpy.data.objects.remove(shot_cam, do_unlink=True)
+    bpy.data.cameras.remove(cam_data)
+
+    print(f"\n  Screenshots saved:")
+    for p in rendered_paths:
+        print(f"    {p}")
+
+    return rendered_paths
+
+
+# ---------------------------------------------------------------------------
 # Master build function
 # ---------------------------------------------------------------------------
 
@@ -1308,6 +1427,10 @@ def build_scene():
                 if space.type == "VIEW_3D":
                     space.shading.type = "MATERIAL"
 
+    # --- Multi-angle screenshots ---
+    print("  Rendering multi-angle screenshots …")
+    render_screenshots()
+
     # Save the result
     blend_path = bpy.data.filepath
     if not blend_path:
@@ -1315,6 +1438,7 @@ def build_scene():
     bpy.ops.wm.save_as_mainfile(filepath=blend_path)
 
     print(f"=== Build Complete — saved to: {blend_path} ===")
+    print(f"    Screenshots: {RENDER_OUTPUT_DIR}/")
     print()
     print("Scene collections:")
     for col in bpy.data.collections:
