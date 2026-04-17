@@ -127,7 +127,7 @@ def build_collections():
 # ---------------------------------------------------------------------------
 
 def make_material_skin():
-    """Smooth anime complexion with slight subsurface scattering."""
+    """Smooth anime complexion with warm tone and subsurface scattering."""
     mat = bpy.data.materials.new("MAT_Skin")
     mat.use_nodes = True
     nodes = mat.node_tree.nodes
@@ -139,18 +139,19 @@ def make_material_skin():
 
     bsdf = nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.location = (300, 0)
-    bsdf.inputs["Base Color"].default_value = (0.98, 0.85, 0.76, 1.0)
-    bsdf.inputs["Subsurface Weight"].default_value = 0.25
-    bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.4, 0.3)
-    bsdf.inputs["Roughness"].default_value = 0.5
-    bsdf.inputs["Specular IOR Level"].default_value = 0.3
+    # Warm peach-pink anime complexion
+    bsdf.inputs["Base Color"].default_value = (1.0, 0.88, 0.78, 1.0)
+    bsdf.inputs["Subsurface Weight"].default_value = 0.35
+    bsdf.inputs["Subsurface Radius"].default_value = (1.1, 0.45, 0.32)
+    bsdf.inputs["Roughness"].default_value = 0.40
+    bsdf.inputs["Specular IOR Level"].default_value = 0.4
 
     links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     return mat
 
 
 def make_material_cloak():
-    """Deep red fabric with subtle roughness variation."""
+    """Vivid crimson fabric with subtle roughness variation."""
     mat = bpy.data.materials.new("MAT_Cloak")
     mat.use_nodes = True
     nodes = mat.node_tree.nodes
@@ -162,11 +163,12 @@ def make_material_cloak():
 
     bsdf = nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.location = (600, 0)
-    bsdf.inputs["Base Color"].default_value = (0.55, 0.02, 0.02, 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.8
-    bsdf.inputs["Specular IOR Level"].default_value = 0.1
-    bsdf.inputs["Sheen Weight"].default_value = 0.4
-    bsdf.inputs["Sheen Roughness"].default_value = 0.6
+    # Bright iconic crimson instead of very dark red
+    bsdf.inputs["Base Color"].default_value = (0.82, 0.04, 0.02, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.75
+    bsdf.inputs["Specular IOR Level"].default_value = 0.15
+    bsdf.inputs["Sheen Weight"].default_value = 0.55
+    bsdf.inputs["Sheen Roughness"].default_value = 0.5
 
     # Fabric noise for subtle texture
     noise = nodes.new("ShaderNodeTexNoise")
@@ -178,8 +180,8 @@ def make_material_cloak():
     mix_rgb = nodes.new("ShaderNodeMixRGB")
     mix_rgb.location = (300, 0)
     mix_rgb.blend_type = "MULTIPLY"
-    mix_rgb.inputs["Fac"].default_value = 0.15
-    mix_rgb.inputs["Color1"].default_value = (0.55, 0.02, 0.02, 1.0)
+    mix_rgb.inputs["Fac"].default_value = 0.12
+    mix_rgb.inputs["Color1"].default_value = (0.82, 0.04, 0.02, 1.0)
 
     links.new(noise.outputs["Color"], mix_rgb.inputs["Color2"])
     links.new(mix_rgb.outputs["Color"], bsdf.inputs["Base Color"])
@@ -200,33 +202,34 @@ def make_material_hair():
 
     bsdf = nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.location = (500, 0)
-    bsdf.inputs["Base Color"].default_value = (0.08, 0.04, 0.02, 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.35
-    bsdf.inputs["Specular IOR Level"].default_value = 0.9
-    bsdf.inputs["Anisotropic"].default_value = 0.8
+    # Slightly richer dark-brown base for better contrast with highlights
+    bsdf.inputs["Base Color"].default_value = (0.06, 0.03, 0.01, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.28
+    bsdf.inputs["Specular IOR Level"].default_value = 1.0
+    bsdf.inputs["Anisotropic"].default_value = 0.85
     bsdf.inputs["Anisotropic Rotation"].default_value = 0.1
 
-    # Toon highlight band via colour ramp
+    # Toon highlight band via colour ramp — wider and brighter
     layer_weight = nodes.new("ShaderNodeLayerWeight")
     layer_weight.location = (0, 100)
-    layer_weight.inputs["Blend"].default_value = 0.6
+    layer_weight.inputs["Blend"].default_value = 0.55
 
     ramp = nodes.new("ShaderNodeValToRGB")
     ramp.location = (200, 100)
     ramp.color_ramp.interpolation = "CONSTANT"
     ramp.color_ramp.elements[0].position = 0.0
     ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    ramp.color_ramp.elements[1].position = 0.55
+    ramp.color_ramp.elements[1].position = 0.50
     ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
 
     mix = nodes.new("ShaderNodeMixRGB")
     mix.location = (400, 0)
     mix.blend_type = "ADD"
-    mix.inputs["Fac"].default_value = 0.35
+    mix.inputs["Fac"].default_value = 0.45
 
     links.new(layer_weight.outputs["Facing"], ramp.inputs["Fac"])
     links.new(ramp.outputs["Color"], mix.inputs["Color2"])
-    mix.inputs["Color1"].default_value = (0.08, 0.04, 0.02, 1.0)
+    mix.inputs["Color1"].default_value = (0.06, 0.03, 0.01, 1.0)
     links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
     links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     return mat
@@ -319,7 +322,7 @@ def make_material_wolf_armor():
 
 
 def make_material_eye():
-    """Bright anime eye — emissive iris."""
+    """Bright anime eye — vivid emissive iris with deep teal-blue colour."""
     mat = bpy.data.materials.new("MAT_Eye")
     mat.use_nodes = True
     nodes = mat.node_tree.nodes
@@ -331,11 +334,55 @@ def make_material_eye():
 
     bsdf = nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.location = (300, 0)
-    bsdf.inputs["Base Color"].default_value = (0.02, 0.35, 0.70, 1.0)
-    bsdf.inputs["Emission Color"].default_value = (0.04, 0.60, 1.0, 1.0)
-    bsdf.inputs["Emission Strength"].default_value = 0.8
+    # Vivid teal-blue iris
+    bsdf.inputs["Base Color"].default_value = (0.01, 0.28, 0.82, 1.0)
+    bsdf.inputs["Emission Color"].default_value = (0.05, 0.55, 1.0, 1.0)
+    bsdf.inputs["Emission Strength"].default_value = 1.4
+    bsdf.inputs["Roughness"].default_value = 0.03
+    bsdf.inputs["Specular IOR Level"].default_value = 1.0
+
+    links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    return mat
+
+
+def make_material_eye_white():
+    """Glossy white sclera for expressive anime eyes."""
+    mat = bpy.data.materials.new("MAT_EyeWhite")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    nodes.clear()
+
+    out = nodes.new("ShaderNodeOutputMaterial")
+    out.location = (400, 0)
+
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.location = (100, 0)
+    bsdf.inputs["Base Color"].default_value = (0.96, 0.96, 0.96, 1.0)
     bsdf.inputs["Roughness"].default_value = 0.05
-    bsdf.inputs["Specular IOR Level"].default_value = 0.9
+    bsdf.inputs["Specular IOR Level"].default_value = 0.6
+
+    links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    return mat
+
+
+def make_material_catchlight():
+    """Tiny emissive white dot — the anime eye catchlight highlight."""
+    mat = bpy.data.materials.new("MAT_Catchlight")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    nodes.clear()
+
+    out = nodes.new("ShaderNodeOutputMaterial")
+    out.location = (400, 0)
+
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.location = (100, 0)
+    bsdf.inputs["Base Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    bsdf.inputs["Emission Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    bsdf.inputs["Emission Strength"].default_value = 4.0
+    bsdf.inputs["Roughness"].default_value = 0.0
 
     links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     return mat
@@ -400,7 +447,7 @@ def apply_scale(obj):
 # Body meshes
 # ---------------------------------------------------------------------------
 
-def build_head(collections, mat_skin, mat_eye):
+def build_head(collections, mat_skin, mat_eye, mat_eye_white, mat_catchlight):
     """Anime head: slightly large cranium, small chin, big eye sockets."""
     deselect_all()
     bm = bmesh.new()
@@ -434,14 +481,38 @@ def build_head(collections, mat_skin, mat_eye):
     obj.data.materials.append(mat_skin)
     collections["body"].objects.link(obj)
 
-    # --- Eyes (left & right) ---
+    # --- Eyes: white sclera + coloured iris + catchlight highlight ---
     for side, sign in (("L", 1), ("R", -1)):
-        eye = create_uv_sphere(
-            f"Eye_{side}", (sign * 0.04, -0.10, 1.645), radius=0.022, segments=12, rings=8
+        # Sclera (white of the eye) — slightly larger, sits behind the iris
+        sclera = create_uv_sphere(
+            f"EyeWhite_{side}", (sign * 0.04, -0.101, 1.645),
+            radius=0.028, segments=14, rings=10
         )
+        sclera.data.materials.append(mat_eye_white)
+        smooth_shade(sclera)
+        link_to_collection(sclera, collections["body"])
+
+        # Iris / coloured part of the eye
+        eye = create_uv_sphere(
+            f"Eye_{side}", (sign * 0.04, -0.104, 1.645),
+            radius=0.022, segments=12, rings=8
+        )
+        # Flatten the iris sphere so it sits flush on the sclera
+        eye.scale = (1.0, 0.35, 1.0)
+        apply_scale(eye)
         eye.data.materials.append(mat_eye)
         smooth_shade(eye)
         link_to_collection(eye, collections["body"])
+
+        # Catchlight — tiny emissive white dot for the anime sparkle
+        highlight = create_uv_sphere(
+            f"Catchlight_{side}",
+            (sign * 0.049, -0.106, 1.658),
+            radius=0.006, segments=8, rings=6
+        )
+        highlight.data.materials.append(mat_catchlight)
+        smooth_shade(highlight)
+        link_to_collection(highlight, collections["body"])
 
     return obj
 
@@ -1202,21 +1273,22 @@ def build_turntable(root_obj, frame_start=1, frame_end=120):
 # ---------------------------------------------------------------------------
 
 def setup_lighting():
-    """Rim light + key light for anime-style preview."""
-    # Key light
+    """Three-point lighting + hair light for anime-style preview."""
+    # Key light — warm and slightly brighter
     bpy.ops.object.light_add(type="AREA", location=(1.5, -1.5, 2.5))
     key = bpy.context.active_object
     key.name = "Light_Key"
-    key.data.energy = 800
+    key.data.energy = 1000
+    key.data.color = (1.0, 0.97, 0.92)  # warm white
     key.data.size = 1.5
     key.rotation_euler = (math.radians(50), 0, math.radians(30))
 
-    # Rim light (back-right, blue tint)
+    # Rim light (back-right, cool blue tint for depth)
     bpy.ops.object.light_add(type="AREA", location=(-1.2, 1.2, 2.0))
     rim = bpy.context.active_object
     rim.name = "Light_Rim"
-    rim.data.energy = 400
-    rim.data.color = (0.6, 0.7, 1.0)
+    rim.data.energy = 550
+    rim.data.color = (0.5, 0.65, 1.0)
     rim.data.size = 0.8
     rim.rotation_euler = (math.radians(-40), 0, math.radians(-140))
 
@@ -1224,8 +1296,36 @@ def setup_lighting():
     bpy.ops.object.light_add(type="AREA", location=(0, -2.0, 1.2))
     fill = bpy.context.active_object
     fill.name = "Light_Fill"
-    fill.data.energy = 150
+    fill.data.energy = 200
     fill.data.size = 3.0
+
+    # Hair/top light — anime crown highlight
+    bpy.ops.object.light_add(type="SPOT", location=(0.0, 0.3, 3.2))
+    hair_light = bpy.context.active_object
+    hair_light.name = "Light_Hair"
+    hair_light.data.energy = 600
+    hair_light.data.color = (0.9, 0.9, 1.0)  # cool white
+    hair_light.data.spot_size = math.radians(30)
+    hair_light.data.spot_blend = 0.5
+    hair_light.rotation_euler = (math.radians(-15), 0, 0)
+
+    # World background — soft neutral gradient to complement the red cloak
+    world = bpy.context.scene.world
+    if world is None:
+        world = bpy.data.worlds.new("World")
+        bpy.context.scene.world = world
+    world.use_nodes = True
+    w_nodes = world.node_tree.nodes
+    w_links = world.node_tree.links
+    w_nodes.clear()
+
+    w_bg = w_nodes.new("ShaderNodeBackground")
+    w_bg.inputs["Color"].default_value = (0.08, 0.08, 0.12, 1.0)  # dark blue-grey
+    w_bg.inputs["Strength"].default_value = 0.6
+
+    w_out = w_nodes.new("ShaderNodeOutputWorld")
+    w_out.location = (300, 0)
+    w_links.new(w_bg.outputs["Background"], w_out.inputs["Surface"])
 
     # Camera for turntable
     bpy.ops.object.camera_add(location=(0, -2.2, 1.4))
@@ -1289,8 +1389,8 @@ def render_screenshots(output_dir=None):
 
     # ---- Render settings ----
     render.engine = "BLENDER_EEVEE"          # fast; swap to CYCLES for raytracing
-    render.resolution_x = 1280
-    render.resolution_y = 720
+    render.resolution_x = 1920
+    render.resolution_y = 1080
     render.resolution_percentage = 100
     render.image_settings.file_format = "PNG"
     render.image_settings.color_mode = "RGBA"
@@ -1298,9 +1398,14 @@ def render_screenshots(output_dir=None):
 
     # EEVEE quality tweaks
     if hasattr(scene, "eevee"):
-        scene.eevee.taa_render_samples = 64
+        scene.eevee.taa_render_samples = 128
         scene.eevee.use_gtao = True          # ambient occlusion
+        scene.eevee.gtao_distance = 0.3
         scene.eevee.use_bloom = True         # soft bloom for anime glow
+        scene.eevee.bloom_intensity = 0.05
+        scene.eevee.bloom_threshold = 0.8
+        scene.eevee.use_ssr = True           # screen-space reflections for eyes
+        scene.eevee.use_soft_shadows = True
 
     # ---- Temporary render camera ----
     cam_data = bpy.data.cameras.new("Render_ShotCam")
@@ -1351,19 +1456,21 @@ def build_scene():
 
     # --- Materials ---
     print("  Building materials …")
-    mat_skin   = make_material_skin()
-    mat_cloak  = make_material_cloak()
-    mat_hair   = make_material_hair()
-    mat_tunic  = make_material_tunic()
-    mat_boots  = make_material_boots()
-    mat_sword  = make_material_sword()
-    mat_wolf   = make_material_wolf_armor()
-    mat_eye    = make_material_eye()
-    mat_basket = make_material_basket()
+    mat_skin      = make_material_skin()
+    mat_cloak     = make_material_cloak()
+    mat_hair      = make_material_hair()
+    mat_tunic     = make_material_tunic()
+    mat_boots     = make_material_boots()
+    mat_sword     = make_material_sword()
+    mat_wolf      = make_material_wolf_armor()
+    mat_eye       = make_material_eye()
+    mat_eye_white = make_material_eye_white()
+    mat_catchlight = make_material_catchlight()
+    mat_basket    = make_material_basket()
 
     # --- Body ---
     print("  Building body meshes …")
-    head   = build_head(collections, mat_skin, mat_eye)
+    head   = build_head(collections, mat_skin, mat_eye, mat_eye_white, mat_catchlight)
     neck   = build_neck(collections, mat_skin)
     body   = build_body(collections, mat_skin, mat_tunic)
     arms   = build_arms(collections, mat_skin)
